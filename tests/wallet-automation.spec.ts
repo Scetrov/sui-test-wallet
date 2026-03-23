@@ -43,19 +43,20 @@ test.describe('Sui Test Wallet Automation', () => {
 
     // 1. Import a key
     const testKey = 'suiprivkey1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq'; // Replace with a valid Bech32 key for real testing
-    const importResult = await page.evaluate(async (key) => {
+    const importResult = await page.evaluate(async (key: string) => {
       return new Promise((resolve) => {
         const handler = (event: MessageEvent) => {
-          if (event.source !== window || event.data.source !== 'sui-test-wallet-content' || event.data.type !== 'AUTOMATION_RESPONSE') return;
+          if (event.source !== window || event.data.type !== 'SUI_TEST_WALLET_AUTOMATION_RESPONSE' || event.data.id !== 'import-key') return;
           window.removeEventListener('message', handler);
-          resolve(event.data.payload);
+          resolve(event.data.response);
         };
         window.addEventListener('message', handler);
         window.postMessage({
-          source: 'playwright-test',
-          type: 'AUTOMATION_COMMAND',
-          command: 'IMPORT_KEY',
-          payload: { bech32Key: key, alias: 'TestAccount1' }
+          type: 'SUI_TEST_WALLET_AUTOMATION',
+          action: 'IMPORT_KEY',
+          id: 'import-key',
+          bech32Key: key,
+          alias: 'TestAccount1'
         }, '*');
       });
     }, testKey);
@@ -66,16 +67,16 @@ test.describe('Sui Test Wallet Automation', () => {
     const networkResult = await page.evaluate(async () => {
       return new Promise((resolve) => {
         const handler = (event: MessageEvent) => {
-          if (event.source !== window || event.data.source !== 'sui-test-wallet-content' || event.data.type !== 'AUTOMATION_RESPONSE') return;
+          if (event.source !== window || event.data.type !== 'SUI_TEST_WALLET_AUTOMATION_RESPONSE' || event.data.id !== 'set-network') return;
           window.removeEventListener('message', handler);
-          resolve(event.data.payload);
+          resolve(event.data.response);
         };
         window.addEventListener('message', handler);
         window.postMessage({
-          source: 'playwright-test',
-          type: 'AUTOMATION_COMMAND',
-          command: 'SET_NETWORK',
-          payload: { network: 'testnet' }
+          type: 'SUI_TEST_WALLET_AUTOMATION',
+          action: 'SET_NETWORK',
+          id: 'set-network',
+          network: 'testnet'
         }, '*');
       });
     });
@@ -86,16 +87,15 @@ test.describe('Sui Test Wallet Automation', () => {
     const mainnetResult = await page.evaluate(async () => {
         return new Promise((resolve) => {
           const handler = (event: MessageEvent) => {
-            if (event.source !== window || event.data.source !== 'sui-test-wallet-content' || event.data.type !== 'AUTOMATION_RESPONSE') return;
+            if (event.source !== window || event.data.type !== 'SUI_TEST_WALLET_AUTOMATION_RESPONSE' || event.data.id !== 'accept-mainnet-risk') return;
             window.removeEventListener('message', handler);
-            resolve(event.data.payload);
+            resolve(event.data.response);
           };
           window.addEventListener('message', handler);
           window.postMessage({
-            source: 'playwright-test',
-            type: 'AUTOMATION_COMMAND',
-            command: 'ACCEPT_MAINNET_RISK',
-            payload: {}
+            type: 'SUI_TEST_WALLET_AUTOMATION',
+            action: 'ACCEPT_MAINNET_RISK',
+            id: 'accept-mainnet-risk'
           }, '*');
         });
       });

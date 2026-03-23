@@ -5,7 +5,7 @@
 
 A specialized Chrome Extension Sui Wallet explicitly designed for **Playwright E2E automation testing**. This extension bridges the gap between running end-to-end dApp tests and interacting securely with the Sui blockchain.
 
-⚠️ **WARNING:** This wallet is designed for AUTOMATION and TESTING purposes only. It stores private keys in plain text within browser storage (`chrome.storage.local`). **Never import a private key that holds real assets.** 
+⚠️ **WARNING:** This wallet is designed for AUTOMATION and TESTING purposes only. It stores private keys in plain text within browser storage (`chrome.storage.local`). **Never import a private key that holds real assets.**
 
 ---
 
@@ -39,14 +39,14 @@ A specialized Chrome Extension Sui Wallet explicitly designed for **Playwright E
 When spinning up a Chromium instance in Playwright, you can automatically load the unpacked `dist` folder:
 
 ```typescript
-import { test, chromium } from '@playwright/test';
-import path from 'path';
+import { test, chromium } from "@playwright/test";
+import path from "path";
 
-test('dApp connects to test wallet', async () => {
-  const extensionPath = path.join(__dirname, '../dist');
-  
+test("dApp connects to test wallet", async () => {
+  const extensionPath = path.join(__dirname, "../dist");
+
   // Launch Chrome with the extension attached
-  const browserContext = await chromium.launchPersistentContext('', {
+  const browserContext = await chromium.launchPersistentContext("", {
     headless: false,
     args: [
       `--disable-extensions-except=${extensionPath}`,
@@ -55,30 +55,38 @@ test('dApp connects to test wallet', async () => {
   });
 
   const page = await browserContext.newPage();
-  await page.goto('http://localhost:3000'); // Your dApp
+  await page.goto("http://localhost:3000"); // Your dApp
 
   // 1. Programmatically import a test wallet key:
   await page.evaluate(async (key) => {
-    window.postMessage({
-      source: 'playwright-test',
-      type: 'AUTOMATION_COMMAND',
-      command: 'IMPORT_KEY',
-      payload: { bech32Key: key, alias: 'E2E Account' }
-    }, '*');
-  }, 'suiprivkey1...');
+    window.postMessage(
+      {
+        type: "SUI_TEST_WALLET_AUTOMATION",
+        action: "IMPORT_KEY",
+        id: "import-key",
+        bech32Key: key,
+        alias: "E2E Account",
+      },
+      "*",
+    );
+  }, "suiprivkey1...");
 
   // 2. Safely swap networks:
   await page.evaluate(() => {
-    window.postMessage({
-      source: 'playwright-test',
-      type: 'AUTOMATION_COMMAND',
-      command: 'SET_NETWORK',
-      payload: { network: 'testnet' } // localnet, devnet, testnet, or mainnet
-    }, '*');
+    window.postMessage(
+      {
+        type: "SUI_TEST_WALLET_AUTOMATION",
+        action: "SET_NETWORK",
+        id: "set-network",
+        network: "testnet", // localnet, devnet, testnet, or mainnet
+      },
+      "*",
+    );
   });
 });
 ```
-*A complete Playwright specification example can be found at `tests/wallet-automation.spec.ts`.*
+
+_A complete Playwright specification example can be found at `tests/wallet-automation.spec.ts`._
 
 ---
 
@@ -96,7 +104,7 @@ Contributions are welcome! If you are extending functionality, please review the
 ### Architecture Overview
 
 1. **Popup UI (`src/popup/`)**: The React-based visual shell seen when clicking the extension icon. It directly dispatches Chrome Runtime messages to the background script.
-2. **Background Service Worker (`src/background/`)**: The source of truth for wallet state. It manages the user's `KeyManager`, derives signatures natively via Sui SDK JSON-RPC clients, executes transactions, and holds the safety guards. 
+2. **Background Service Worker (`src/background/`)**: The source of truth for wallet state. It manages the user's `KeyManager`, derives signatures natively via Sui SDK JSON-RPC clients, executes transactions, and holds the safety guards.
 3. **Content Script (`src/content/`)**: Automatically injected into all webpages (`<all_urls>`).
    - Acts as a **Relay** translating standard `window.postMessage` events triggered by dApps to encrypted background service worker events.
    - Provides the `window.postMessage` automation hooks for Playwright.
@@ -108,20 +116,21 @@ Contributions are welcome! If you are extending functionality, please review the
    ```bash
    npm run dev
    ```
-   *Vite / CRXJS will hot-reload the extension as you make changes.*
+   _Vite / CRXJS will hot-reload the extension as you make changes._
 2. **Compile for production:**
    ```bash
    npm run build
    ```
-   *Outputs optimized assets to `dist/`.*
+   _Outputs optimized assets to `dist/`._
 
 ### Typescript Details
 
 Due to changes in the Sui v2 compiler migrations and CRXJS Vite behavior:
-- Be aware that the Vite configuration executes as ESM natively (`vite.config.mts`).
-- The wallet relies primarily on new `SuiJsonRpcClient` components under `@mysten/sui/jsonRpc`. 
 
-*Make sure to run `npx tsc --noEmit` before opening pull requests to ensure strict type compliance!*
+- Be aware that the Vite configuration executes as ESM natively (`vite.config.mts`).
+- The wallet relies primarily on new `SuiJsonRpcClient` components under `@mysten/sui/jsonRpc`.
+
+_Make sure to run `npx tsc --noEmit` before opening pull requests to ensure strict type compliance!_
 
 ---
 
