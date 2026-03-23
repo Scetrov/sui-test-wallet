@@ -140,7 +140,7 @@ async function handleMessage(message: any, _sender: chrome.runtime.MessageSender
       const keypair = keyManager.getActiveKeypair();
       if (!keypair) {
         const address = await keyManager.getAddress();
-        const storedKeys = (await chrome.storage.local.get(['suiTestWalletKeys'])).suiTestWalletKeys || [];
+        const storedKeys = ((await chrome.storage.local.get(['suiTestWalletKeys'])).suiTestWalletKeys as any[]) || [];
         const key = storedKeys.find((k: any) => k.publicKey === address);
         if (key && !key.bech32Key) {
             throw new Error("Cannot sign with a watch-only account. Please import the private key.");
@@ -159,7 +159,7 @@ async function handleMessage(message: any, _sender: chrome.runtime.MessageSender
       const keypair = keyManager.getActiveKeypair();
       if (!keypair) {
         const address = await keyManager.getAddress();
-        const storedKeys = (await chrome.storage.local.get(['suiTestWalletKeys'])).suiTestWalletKeys || [];
+        const storedKeys = ((await chrome.storage.local.get(['suiTestWalletKeys'])).suiTestWalletKeys as any[]) || [];
         const key = storedKeys.find((k: any) => k.publicKey === address);
         if (key && !key.bech32Key) {
             throw new Error("Cannot sign with a watch-only account. Please import the private key.");
