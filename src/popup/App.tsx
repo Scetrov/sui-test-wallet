@@ -5,11 +5,14 @@ export default function App() {
   const [activeAddress, setActiveAddress] = useState<string | null>(null);
   const [accounts, setAccounts] = useState<string[]>([]);
   const [resolvedNames, setResolvedNames] = useState<Record<string, { suins?: string, eve?: string }>>({});
+  const [accountMetadata, setAccountMetadata] = useState<Record<string, { type: 'private-key' | 'watch-only' }>>({});
   const [bech32Key, setBech32Key] = useState('');
+  const [watchAddress, setWatchAddress] = useState('');
   const [mainnetAccepted, setMainnetAccepted] = useState(false);
   const [error, setError] = useState<string | null>(null);
   
   const [importExpanded, setImportExpanded] = useState(false);
+  const [watchExpanded, setWatchExpanded] = useState(false);
   const [networkExpanded, setNetworkExpanded] = useState(false);
 
   useEffect(() => {
@@ -23,6 +26,7 @@ export default function App() {
           if (res.active) setActiveAddress(res.active);
           if (res.accounts) setAccounts(res.accounts);
           if (res.resolvedNames) setResolvedNames(res.resolvedNames);
+          if (res.metadata) setAccountMetadata(res.metadata);
         }
       });
     };
@@ -33,21 +37,28 @@ export default function App() {
     });
   }, []);
 
-  const handleImport = () => {
+  const handleImport = (mode: 'private-key' | 'watch-only') => {
     setError(null);
-    chrome.runtime.sendMessage({ type: 'IMPORT_KEY', bech32Key, alias: 'Playwright Test Key' }, (res) => {
+    const type = mode === 'private-key' ? 'IMPORT_KEY' : 'IMPORT_WATCH_ADDRESS';
+    const payload = mode === 'private-key' 
+      ? { type, bech32Key, alias: 'Playwright Test Key' }
+      : { type, address: watchAddress, alias: 'Watch Account' };
+
+    chrome.runtime.sendMessage(payload, (res) => {
       if (res?.error) {
         setError(res.error);
       } else if (res?.address) {
         setActiveAddress(res.address);
-        setBech32Key('');
+        if (mode === 'private-key') setBech32Key('');
+        else setWatchAddress('');
         // Refresh account list
         chrome.runtime.sendMessage({ type: 'GET_ACCOUNTS' }, (res) => {
           if (res?.accounts) setAccounts(res.accounts);
           if (res?.resolvedNames) setResolvedNames(res.resolvedNames);
+          if (res?.metadata) setAccountMetadata(res.metadata);
         });
       } else {
-        setError('Failed to import key: ' + chrome.runtime.lastError?.message);
+        setError('Failed to import: ' + chrome.runtime.lastError?.message);
       }
     });
   };
@@ -103,9 +114,14 @@ export default function App() {
                   />
                   <span className="radio-custom"></span>
                   <div className="account-info">
-                    <span className="address-text">
-                      {resolvedNames[address]?.eve || resolvedNames[address]?.suins || `${address.slice(0, 8)}...${address.slice(-6)}`}
-                    </span>
+                    <div className="account-header-row">
+                      <span className="address-text">
+                        {resolvedNames[address]?.eve || resolvedNames[address]?.suins || `${address.slice(0, 8)}...${address.slice(-6)}`}
+                      </span>
+                      {accountMetadata[address]?.type === 'watch-only' && (
+                        <span className="badge badge-watch">Watch Only</span>
+                      )}
+                    </div>
                     {(resolvedNames[address]?.eve || resolvedNames[address]?.suins) && (
                       <span className="sub-address">{address.slice(0, 8)}...{address.slice(-6)}</span>
                     )}
@@ -121,7 +137,7 @@ export default function App() {
 
       <div className="section">
         <div className="section-header" onClick={() => setImportExpanded(!importExpanded)}>
-          <h3>Import Key</h3>
+          <h3>Import Private Key</h3>
           <span className={`chevron ${importExpanded ? 'expanded' : ''}`}>▼</span>
         </div>
         
@@ -134,10 +150,41 @@ export default function App() {
               placeholder="suiprivkey1..." 
               className="input-field"
             />
-            <button onClick={handleImport} className="btn-primary" disabled={bech32Key.length === 0}>
-              Import
+            <button 
+              onClick={() => handleImport('private-key')} 
+              className="btn-primary" 
+              disabled={bech32Key.length === 0}
+            >
+              Import Key
             </button>
-            {error && <div className="error-text">{error}</div>}
+            {error && !watchAddress && <div className="error-text">{error}</div>}
+          </div>
+        )}
+      </div>
+
+      <div className="section">
+        <div className="section-header" onClick={() => setWatchExpanded(!watchExpanded)}>
+          <h3>Watch Wallet</h3>
+          <span className={`chevron ${watchExpanded ? 'expanded' : ''}`}>▼</span>
+        </div>
+        
+        {watchExpanded && (
+          <div className="section-content">
+            <input 
+              type="text" 
+              value={watchAddress}
+              onChange={(e) => setWatchAddress(e.target.value)}
+              placeholder="0x..." 
+              className="input-field"
+            />
+            <button 
+              onClick={() => handleImport('watch-only')} 
+              className="btn-primary" 
+              disabled={watchAddress.length === 0}
+            >
+              Add Watch Address
+            </button>
+            {error && watchAddress && <div className="error-text">{error}</div>}
           </div>
         )}
       </div>

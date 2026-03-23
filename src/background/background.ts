@@ -89,6 +89,11 @@ async function handleMessage(message: any, _sender: chrome.runtime.MessageSender
       return { success: true, address: added.publicKey };
     }
 
+    case 'IMPORT_WATCH_ADDRESS': {
+      const added = await keyManager.importWatchAddress(message.address, message.alias);
+      return { success: true, address: added.publicKey };
+    }
+
     case 'GET_ACCOUNTS': {
       const accounts = await keyManager.getAccounts();
       const active = await keyManager.getAddress();
@@ -98,11 +103,17 @@ async function handleMessage(message: any, _sender: chrome.runtime.MessageSender
       
       // Resolve names for all accounts in parallel
       const resolvedNames: Record<string, { suins?: string, eve?: string }> = {};
+      const metadata: Record<string, { type: 'private-key' | 'watch-only' }> = {};
+      
+      const storedKeys = ((await chrome.storage.local.get(['suiTestWalletKeys'])).suiTestWalletKeys as any[]) || [];
+
       await Promise.all(accounts.map(async (addr) => {
         resolvedNames[addr] = await resolveNames(client, addr);
+        const key = storedKeys.find((k: any) => k.publicKey === addr);
+        metadata[addr] = { type: key?.bech32Key ? 'private-key' : 'watch-only' };
       }));
 
-      return { accounts, active, resolvedNames };
+      return { accounts, active, resolvedNames, metadata };
     }
 
     case 'SET_NETWORK': {
@@ -127,7 +138,15 @@ async function handleMessage(message: any, _sender: chrome.runtime.MessageSender
 
     case 'SIGN_TRANSACTION': {
       const keypair = keyManager.getActiveKeypair();
-      if (!keypair) throw new Error("No active keypair found. Import a key first.");
+      if (!keypair) {
+        const address = await keyManager.getAddress();
+        const storedKeys = (await chrome.storage.local.get(['suiTestWalletKeys'])).suiTestWalletKeys || [];
+        const key = storedKeys.find((k: any) => k.publicKey === address);
+        if (key && !key.bech32Key) {
+            throw new Error("Cannot sign with a watch-only account. Please import the private key.");
+        }
+        throw new Error("No active keypair found. Import a key first.");
+      }
 
       const tx = Transaction.from(message.txJson);
       const network = await getNetwork();
@@ -138,7 +157,15 @@ async function handleMessage(message: any, _sender: chrome.runtime.MessageSender
 
     case 'SIGN_AND_EXECUTE_TRANSACTION': {
       const keypair = keyManager.getActiveKeypair();
-      if (!keypair) throw new Error("No active keypair found. Import a key first.");
+      if (!keypair) {
+        const address = await keyManager.getAddress();
+        const storedKeys = (await chrome.storage.local.get(['suiTestWalletKeys'])).suiTestWalletKeys || [];
+        const key = storedKeys.find((k: any) => k.publicKey === address);
+        if (key && !key.bech32Key) {
+            throw new Error("Cannot sign with a watch-only account. Please import the private key.");
+        }
+        throw new Error("No active keypair found. Import a key first.");
+      }
 
       const network = await getNetwork();
       const client = new SuiJsonRpcClient({ url: getJsonRpcFullnodeUrl(network as any), network: network as any });

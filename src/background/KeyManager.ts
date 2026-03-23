@@ -4,7 +4,7 @@ import { decodeSuiPrivateKey } from '@mysten/sui/cryptography';
 export interface StoredKey {
   alias: string;
   publicKey: string;
-  bech32Key: string;
+  bech32Key?: string;
 }
 
 export class KeyManager {
@@ -29,12 +29,15 @@ export class KeyManager {
 
       if (this.activeAddress) {
         const activeKey = this.storedKeys.find(k => k.publicKey === this.activeAddress);
-        if (activeKey) {
+        if (activeKey && activeKey.bech32Key) {
           this.activeKeypair = this.deriveKeypair(activeKey.bech32Key);
         } else if (this.storedKeys.length > 0) {
-          // Fallback if activeAddress not found in storedKeys
-          this.activeAddress = this.storedKeys[0].publicKey;
-          this.activeKeypair = this.deriveKeypair(this.storedKeys[0].bech32Key);
+          const firstWithKey = this.storedKeys.find(k => k.bech32Key);
+          if (firstWithKey) {
+             // We don't necessarily want to force an active address change here if it was a watch wallet
+             // but if we need a keypair and don't have one, we might need a fallback.
+             // For now, let's just leave it null if it's a watch wallet.
+          }
         }
       }
     }
@@ -57,6 +60,11 @@ export class KeyManager {
     // Check if exists
     const existingIndex = this.storedKeys.findIndex(k => k.publicKey === publicKey);
     if (existingIndex >= 0) {
+      if (!this.storedKeys[existingIndex].bech32Key) {
+        // Upgrade watch wallet to full wallet
+        this.storedKeys[existingIndex].bech32Key = bech32Key;
+        await this.saveToStorage();
+      }
       return this.storedKeys[existingIndex];
     }
 
@@ -75,11 +83,41 @@ export class KeyManager {
     return newKey;
   }
 
+  public async importWatchAddress(address: string, alias: string = 'Watch Wallet'): Promise<StoredKey> {
+    // Basic validation
+    if (!address.startsWith('0x') || address.length < 10) {
+      throw new Error("Invalid Sui address format");
+    }
+
+    // Check if exists
+    const existingIndex = this.storedKeys.findIndex(k => k.publicKey === address);
+    if (existingIndex >= 0) {
+      return this.storedKeys[existingIndex];
+    }
+
+    const newKey: StoredKey = {
+      alias: `${alias} ${this.storedKeys.length + 1}`,
+      publicKey: address
+    };
+
+    this.storedKeys.push(newKey);
+    await this.saveToStorage();
+
+    // Set as active
+    await this.setActiveAddress(address);
+
+    return newKey;
+  }
+
   public async setActiveAddress(address: string): Promise<void> {
     const key = this.storedKeys.find(k => k.publicKey === address);
     if (key) {
       this.activeAddress = address;
-      this.activeKeypair = this.deriveKeypair(key.bech32Key);
+      if (key.bech32Key) {
+        this.activeKeypair = this.deriveKeypair(key.bech32Key);
+      } else {
+        this.activeKeypair = null;
+      }
       await chrome.storage.local.set({ suiTestWalletActiveAddress: address });
     }
   }
