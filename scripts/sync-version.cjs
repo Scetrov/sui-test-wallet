@@ -1,5 +1,6 @@
 const fs = require('node:fs');
 const path = require('node:path');
+const { execFileSync } = require('node:child_process');
 
 const packageJsonPath = path.join(__dirname, '..', 'package.json');
 const manifestPath = path.join(__dirname, '..', 'manifest.json');
@@ -23,6 +24,13 @@ if (process.argv.includes('--check')) {
 if (manifest.version !== nextVersion) {
   manifest.version = nextVersion;
   fs.writeFileSync(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
+
+  try {
+    execFileSync('git', ['add', manifestPath], { stdio: 'ignore' });
+  } catch {
+    // Ignore environments without git or without an initialized repository.
+  }
+
   console.log(`Updated manifest.json to version ${nextVersion}`);
 } else {
   console.log(`manifest.json already matches version ${nextVersion}`);

@@ -69,7 +69,23 @@ jobs:
             exit 1
           fi
 
-          gh run watch "$run_id" --interval 10 --exit-status
+          while true; do
+            status="$(gh api "/repos/${GITHUB_REPOSITORY}/actions/runs/${run_id}" --jq '.status')"
+            conclusion="$(gh api "/repos/${GITHUB_REPOSITORY}/actions/runs/${run_id}" --jq '.conclusion // empty')"
+
+            echo "CI run ${run_id}: status=${status} conclusion=${conclusion:-pending}"
+
+            if [ "$status" = "completed" ]; then
+              if [ "$conclusion" != "success" ]; then
+                echo "CI run ${run_id} completed with conclusion ${conclusion}."
+                exit 1
+              fi
+              break
+            fi
+
+            sleep 10
+          done
+
           echo "id=$run_id" >> "$GITHUB_OUTPUT"
 
       - name: Download packaged artifact

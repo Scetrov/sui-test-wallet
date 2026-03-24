@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Sui Test Wallet (Automation)",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "description": "An insecure development wallet for Playwright E2E automation against Sui dApps.",
   "action": {
     "default_popup": "popup.html",
