@@ -4,14 +4,22 @@
   "description": "",
   "main": "index.js",
   "scripts": {
+    "commit": "cz",
     "dev": "vite",
     "build": "tsc && vite build",
-    "test": "playwright test"
+    "test": "playwright test",
+    "version": "node scripts/sync-version.cjs",
+    "version:check": "node scripts/sync-version.cjs --check"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "type": "commonjs",
+  "config": {
+    "commitizen": {
+      "path": "cz-conventional-changelog"
+    }
+  },
   "dependencies": {
     "@mysten/sui": "^2.9.1",
     "@mysten/wallet-standard": "^0.20.1",
@@ -20,14 +28,16 @@
     "react-dom": "^19.2.4"
   },
   "devDependencies": {
-    "@crxjs/vite-plugin": "^2.0.0-beta.28",
+    "@crxjs/vite-plugin": "^2.4.0",
     "@playwright/test": "^1.50.1",
     "@types/chrome": "^0.1.38",
     "@types/node": "^25.5.0",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
-    "@vitejs/plugin-react": "^6.0.1",
+    "@vitejs/plugin-react": "^5.2.0",
+    "commitizen": "^4.3.1",
+    "cz-conventional-changelog": "^3.3.0",
     "typescript": "^5.9.3",
-    "vite": "^8.0.2"
+    "vite": "^7.3.1"
   }
 }

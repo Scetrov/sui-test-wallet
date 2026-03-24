@@ -37,15 +37,24 @@ The process which has to be followed to get a pull request merged:
 1. Follow all instructions in the [README](README.md).
 2. Ensure you have run the tests locally and they pass.
 3. Update the documentation if you're making changes that require it.
+4. Prefer `npm run commit` so new commits follow the Conventional Commits format.
 
 ## Styleguides
 
 ### Git Commit Messages
 
+- Prefer Commitizen via `npm run commit` so commit messages follow the Conventional Commits format.
 - Use the present tense ("Add feature" not "Added feature").
 - Use the imperative mood ("Move cursor to..." not "Moves cursor to...").
 - Limit the first line to 72 characters or less.
 - Reference issues and pull requests liberally after the first line.
+
+### Releases
+
+- Releases are created from tags that match the version in `package.json` and `manifest.json`.
+- Run `npm version patch`, `npm version minor`, or `npm version major` to bump the version. The `version` script keeps `manifest.json` aligned automatically.
+- Push the release commit and tag together with `git push origin main --follow-tags`.
+- The release workflow downloads the CI artifact built for that exact commit and publishes it to GitHub Releases without rebuilding.
 
 ### JavaScript/TypeScript Styleguide
 

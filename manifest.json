@@ -29,7 +29,7 @@
   ],
   "web_accessible_resources": [
     {
-      "resources": ["icon-16.png", "icon-48.png", "icon-128.png", "injected-wallet.js"],
+      "resources": ["injected-wallet.js"],
       "matches": ["<all_urls>"]
     }
   ],

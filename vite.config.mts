@@ -16,11 +16,6 @@ export default defineConfig({
   },
   build: {
     target: 'esnext',
-    rollupOptions: {
-      input: {
-        popup: path.resolve(__dirname, 'popup.html'),
-      },
-    },
   },
   define: {
     'process.env': {}

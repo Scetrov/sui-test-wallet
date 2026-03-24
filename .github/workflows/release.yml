@@ -1,0 +1,106 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  actions: read
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Use Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Resolve tagged commit
+        id: target
+        run: echo "sha=$(git rev-list -n 1 \"${GITHUB_REF_NAME}\")" >> "$GITHUB_OUTPUT"
+
+      - name: Check version metadata
+        run: npm run version:check
+
+      - name: Read package version
+        id: package_version
+        run: echo "version=$(node -p \"require('./package.json').version\")" >> "$GITHUB_OUTPUT"
+
+      - name: Verify tag matches package version
+        run: |
+          expected_tag="v${{ steps.package_version.outputs.version }}"
+          if [ "${GITHUB_REF_NAME}" != "$expected_tag" ]; then
+            echo "Tag ${GITHUB_REF_NAME} does not match package version $expected_tag"
+            exit 1
+          fi
+
+      - name: Wait for CI run on tagged commit
+        id: ci_run
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TARGET_SHA: ${{ steps.target.outputs.sha }}
+        run: |
+          attempts=0
+          run_id=""
+
+          while [ "$attempts" -lt 30 ]; do
+            run_id="$(gh api \
+              "/repos/${GITHUB_REPOSITORY}/actions/workflows/ci.yml/runs?event=push&head_sha=${TARGET_SHA}" \
+              --jq '.workflow_runs[0].id // empty')"
+
+            if [ -n "$run_id" ]; then
+              break
+            fi
+
+            attempts=$((attempts + 1))
+            echo "Waiting for CI run for commit ${TARGET_SHA}... (${attempts}/30)"
+            sleep 10
+          done
+
+          if [ -z "$run_id" ]; then
+            echo "No CI workflow run found for commit ${TARGET_SHA}. Push the tagged commit to main first."
+            exit 1
+          fi
+
+          gh run watch "$run_id" --interval 10 --exit-status
+          echo "id=$run_id" >> "$GITHUB_OUTPUT"
+
+      - name: Download packaged artifact
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TARGET_SHA: ${{ steps.target.outputs.sha }}
+        run: |
+          mkdir -p release-artifact
+          gh run download "${{ steps.ci_run.outputs.id }}" \
+            -n "release-bundle-${TARGET_SHA}" \
+            -D release-artifact
+
+      - name: Locate release asset
+        id: asset
+        run: |
+          asset_path="$(find release-artifact -type f -name 'sui-test-wallet-*.zip' | head -n 1)"
+          if [ -z "$asset_path" ]; then
+            echo "Packaged release asset was not found in the downloaded artifact."
+            exit 1
+          fi
+
+          versioned_asset="release-artifact/sui-test-wallet-${GITHUB_REF_NAME}.zip"
+          cp "$asset_path" "$versioned_asset"
+          echo "path=$versioned_asset" >> "$GITHUB_OUTPUT"
+
+      - name: Create GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          target_commitish: ${{ steps.target.outputs.sha }}
+          files: ${{ steps.asset.outputs.path }}
+          generate_release_notes: true
+          make_latest: true
+          fail_on_unmatched_files: true
