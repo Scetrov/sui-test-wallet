@@ -331,7 +331,7 @@ test.describe('Sui Test Wallet Automation', () => {
     await expect(approvalPage.getByText('Transaction summary')).toBeVisible();
     await expect(approvalPage.getByText('Type')).toBeVisible();
     await expect(approvalPage.locator('.approval-summary-card').getByText('manual-approval-test', { exact: true })).toBeVisible();
-    await expect(approvalPage.getByText('Sender')).toBeVisible();
+    await expect(approvalPage.locator('.approval-summary-card').getByText('Sender', { exact: true })).toBeVisible();
     await expect(approvalPage.locator('.approval-summary-card').getByText('test', { exact: true })).toBeVisible();
 
     const approvalId = new URL(approvalPage.url()).searchParams.get('approval');
