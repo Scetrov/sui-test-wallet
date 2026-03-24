@@ -122,6 +122,36 @@ export class KeyManager {
     }
   }
 
+  public async removeAccount(address: string): Promise<string | null> {
+    if (this.storedKeys.length === 0) {
+      await this.loadFromStorage();
+    }
+
+    const nextKeys = this.storedKeys.filter((key) => key.publicKey !== address);
+    if (nextKeys.length === this.storedKeys.length) {
+      return this.activeAddress;
+    }
+
+    this.storedKeys = nextKeys;
+    await this.saveToStorage();
+
+    if (this.activeAddress === address) {
+      const nextActive = this.storedKeys[0]?.publicKey || null;
+      this.activeAddress = nextActive;
+
+      if (!nextActive) {
+        this.activeKeypair = null;
+        await chrome.storage.local.remove('suiTestWalletActiveAddress');
+        return null;
+      }
+
+      await this.setActiveAddress(nextActive);
+      return nextActive;
+    }
+
+    return this.activeAddress;
+  }
+
   public getActiveKeypair(): Ed25519Keypair | null {
     return this.activeKeypair;
   }

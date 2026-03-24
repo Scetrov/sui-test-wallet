@@ -1,16 +1,21 @@
-import { test, expect, chromium } from '@playwright/test';
+import { test, expect, chromium, type BrowserContext, type Page } from '@playwright/test';
 import path from 'path';
 
 test.describe('Sui Test Wallet Automation', () => {
-  let browserContext: any;
-  let extensionId: string;
+  test.describe.configure({ mode: 'serial' });
 
-  test.beforeAll(async () => {
-    // Path to the compiled extension
-    const extensionPath = path.join(__dirname, '../dist');
-    
-    // Launch Chrome with the extension loaded
-    browserContext = await chromium.launchPersistentContext('', {
+  let browserContext: BrowserContext;
+  let extensionId: string;
+  const extensionPath = path.join(__dirname, '../dist');
+  const watchAddressOne = '0xa111111111111111111111111111111111111111111111111111111111111111';
+  const watchAddressTwo = '0xb222222222222222222222222222222222222222222222222222222222222222';
+
+  function shortAddress(address: string) {
+    return `${address.slice(0, 8)}...${address.slice(-6)}`;
+  }
+
+  async function launchExtension(userDataDir: string) {
+    browserContext = await chromium.launchPersistentContext(userDataDir, {
       headless: false,
       args: [
         `--disable-extensions-except=${extensionPath}`,
@@ -18,18 +23,26 @@ test.describe('Sui Test Wallet Automation', () => {
       ],
     });
 
-    // Find the background service worker to get the extension ID
     let [background] = browserContext.serviceWorkers();
     if (!background) {
       background = await browserContext.waitForEvent('serviceworker');
     }
 
-    const extensionUrl = background.url();
-    extensionId = extensionUrl.split('/')[2];
-    console.log(`Extension loaded with ID: ${extensionId}`);
+    extensionId = background.url().split('/')[2];
+  }
+
+  async function openPopupPage(): Promise<Page> {
+    const page = await browserContext.newPage();
+    await page.goto(`chrome-extension://${extensionId}/popup.html`);
+    await expect(page.locator('.popup-container')).toBeVisible();
+    return page;
+  }
+
+  test.beforeEach(async ({}, testInfo) => {
+    await launchExtension(testInfo.outputPath('user-data'));
   });
 
-  test.afterAll(async () => {
+  test.afterEach(async () => {
     await browserContext.close();
   });
 
@@ -143,5 +156,39 @@ test.describe('Sui Test Wallet Automation', () => {
         }),
       ]),
     );
+  });
+
+  test('should require explicit confirmation before deleting an address', async () => {
+    const popupPage = await openPopupPage();
+
+    await popupPage.getByRole('heading', { name: 'Watch Wallet' }).click();
+    await popupPage.getByPlaceholder('0x...').fill(watchAddressOne);
+    await popupPage.getByRole('button', { name: 'Add Watch Address' }).click();
+    await expect(popupPage.locator('.account-item').filter({ hasText: shortAddress(watchAddressOne) })).toBeVisible();
+
+    await popupPage.getByPlaceholder('0x...').fill(watchAddressTwo);
+    await popupPage.getByRole('button', { name: 'Add Watch Address' }).click();
+
+    const firstRow = popupPage.locator('.account-item').filter({ hasText: shortAddress(watchAddressOne) });
+    const secondRow = popupPage.locator('.account-item').filter({ hasText: shortAddress(watchAddressTwo) });
+
+    await expect(firstRow).toBeVisible();
+    await expect(secondRow).toBeVisible();
+
+    await secondRow.hover();
+    await secondRow.getByRole('button', { name: `Delete account ${watchAddressTwo}` }).click();
+    await expect(secondRow.getByRole('button', { name: `Confirm delete account ${watchAddressTwo}` })).toBeVisible();
+    await expect(secondRow.getByRole('button', { name: `Cancel delete account ${watchAddressTwo}` })).toBeVisible();
+
+    await secondRow.getByRole('button', { name: `Cancel delete account ${watchAddressTwo}` }).click();
+    await expect(secondRow).toBeVisible();
+
+    await secondRow.hover();
+    await secondRow.getByRole('button', { name: `Delete account ${watchAddressTwo}` }).click();
+    await secondRow.getByRole('button', { name: `Confirm delete account ${watchAddressTwo}` }).click();
+
+    await expect(secondRow).toHaveCount(0);
+    await expect(firstRow).toBeVisible();
+    await expect(firstRow.locator('input[type="radio"]')).toBeChecked();
   });
 });

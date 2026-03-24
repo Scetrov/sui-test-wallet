@@ -6,6 +6,7 @@ export default function App() {
   const [accounts, setAccounts] = useState<string[]>([]);
   const [resolvedNames, setResolvedNames] = useState<Record<string, { suins?: string, eve?: string }>>({});
   const [accountMetadata, setAccountMetadata] = useState<Record<string, { type: 'private-key' | 'watch-only' }>>({});
+  const [pendingDeleteAddress, setPendingDeleteAddress] = useState<string | null>(null);
   const [bech32Key, setBech32Key] = useState('');
   const [watchAddress, setWatchAddress] = useState('');
   const [mainnetAccepted, setMainnetAccepted] = useState(false);
@@ -15,21 +16,26 @@ export default function App() {
   const [watchExpanded, setWatchExpanded] = useState(false);
   const [networkExpanded, setNetworkExpanded] = useState(false);
 
+  const fetchAccounts = () => {
+    chrome.runtime.sendMessage({ type: 'GET_ACCOUNTS' }, (res) => {
+      if (res) {
+        if (res.active !== undefined) setActiveAddress(res.active);
+        if (res.accounts) setAccounts(res.accounts);
+        if (res.resolvedNames) setResolvedNames(res.resolvedNames);
+        if (res.metadata) setAccountMetadata(res.metadata);
+        if (pendingDeleteAddress && !res.accounts?.includes(pendingDeleteAddress)) {
+          setPendingDeleteAddress(null);
+        }
+      }
+    });
+  };
+
   useEffect(() => {
     // Load state from background
     chrome.runtime.sendMessage({ type: 'GET_NETWORK' }, (res) => {
       if (res && res.network) setNetwork(res.network);
     });
-    const fetchAccounts = () => {
-      chrome.runtime.sendMessage({ type: 'GET_ACCOUNTS' }, (res) => {
-        if (res) {
-          if (res.active) setActiveAddress(res.active);
-          if (res.accounts) setAccounts(res.accounts);
-          if (res.resolvedNames) setResolvedNames(res.resolvedNames);
-          if (res.metadata) setAccountMetadata(res.metadata);
-        }
-      });
-    };
+
     fetchAccounts();
     // Check local storage for mainnet explicit accept
     chrome.storage.local.get(['suiTestWalletMainnetAccepted'], (res) => {
@@ -51,12 +57,7 @@ export default function App() {
         setActiveAddress(res.address);
         if (mode === 'private-key') setBech32Key('');
         else setWatchAddress('');
-        // Refresh account list
-        chrome.runtime.sendMessage({ type: 'GET_ACCOUNTS' }, (res) => {
-          if (res?.accounts) setAccounts(res.accounts);
-          if (res?.resolvedNames) setResolvedNames(res.resolvedNames);
-          if (res?.metadata) setAccountMetadata(res.metadata);
-        });
+        fetchAccounts();
       } else {
         setError('Failed to import: ' + chrome.runtime.lastError?.message);
       }
@@ -66,6 +67,27 @@ export default function App() {
   const handleAccountChange = (address: string) => {
     setActiveAddress(address);
     chrome.runtime.sendMessage({ type: 'SET_ACTIVE_ACCOUNT', address });
+  };
+
+  const handleDeleteAccount = (address: string) => {
+    setError(null);
+    setPendingDeleteAddress(null);
+    chrome.runtime.sendMessage({ type: 'REMOVE_ACCOUNT', address }, (res) => {
+      if (res?.error) {
+        setError(res.error);
+        return;
+      }
+
+      if (res && 'active' in res) {
+        setActiveAddress(res.active ?? null);
+      }
+
+      fetchAccounts();
+    });
+  };
+
+  const toggleDeleteConfirmation = (address: string) => {
+    setPendingDeleteAddress((current) => current === address ? null : address);
   };
 
   const handleNetworkChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
@@ -105,28 +127,67 @@ export default function App() {
           {accounts.length > 0 ? (
             <div className="account-list">
               {accounts.map((address) => (
-                <label key={address} className={`account-item ${activeAddress === address ? 'active' : ''}`}>
-                  <input 
-                    type="radio" 
-                    name="active-account"
-                    checked={activeAddress === address}
-                    onChange={() => handleAccountChange(address)}
-                  />
-                  <span className="radio-custom"></span>
-                  <div className="account-info">
-                    <div className="account-header-row">
-                      <span className="address-text">
-                        {resolvedNames[address]?.eve || resolvedNames[address]?.suins || `${address.slice(0, 8)}...${address.slice(-6)}`}
-                      </span>
-                      {accountMetadata[address]?.type === 'watch-only' && (
-                        <span className="badge badge-watch">Watch Only</span>
+                <div key={address} className={`account-item ${activeAddress === address ? 'active' : ''}`}>
+                  <label className="account-select">
+                    <input 
+                      type="radio" 
+                      name="active-account"
+                      checked={activeAddress === address}
+                      onChange={() => handleAccountChange(address)}
+                    />
+                    <span className="radio-custom"></span>
+                    <div className="account-info">
+                      <div className="account-header-row">
+                        <span className="address-text">
+                          {resolvedNames[address]?.eve || resolvedNames[address]?.suins || `${address.slice(0, 8)}...${address.slice(-6)}`}
+                        </span>
+                        {accountMetadata[address]?.type === 'watch-only' && (
+                          <span className="badge badge-watch">Watch Only</span>
+                        )}
+                      </div>
+                      {(resolvedNames[address]?.eve || resolvedNames[address]?.suins) && (
+                        <span className="sub-address">{address.slice(0, 8)}...{address.slice(-6)}</span>
                       )}
                     </div>
-                    {(resolvedNames[address]?.eve || resolvedNames[address]?.suins) && (
-                      <span className="sub-address">{address.slice(0, 8)}...{address.slice(-6)}</span>
+                  </label>
+                  <div className={`account-actions ${pendingDeleteAddress === address ? 'confirming' : ''}`}>
+                    {pendingDeleteAddress === address ? (
+                      <>
+                        <button
+                          type="button"
+                          className="account-action-button confirm-account-button"
+                          aria-label={`Confirm delete account ${address}`}
+                          onClick={() => handleDeleteAccount(address)}
+                        >
+                          <svg viewBox="0 0 24 24" aria-hidden="true">
+                            <path d="M9 16.17 4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" fill="currentColor" />
+                          </svg>
+                        </button>
+                        <button
+                          type="button"
+                          className="account-action-button cancel-account-button"
+                          aria-label={`Cancel delete account ${address}`}
+                          onClick={() => setPendingDeleteAddress(null)}
+                        >
+                          <svg viewBox="0 0 24 24" aria-hidden="true">
+                            <path d="M18.3 5.71 12 12l6.3 6.29-1.42 1.42L10.59 13.4 4.29 19.7 2.88 18.3 9.17 12l-6.3-6.29L4.29 4.3l6.3 6.29 6.29-6.3z" fill="currentColor" />
+                          </svg>
+                        </button>
+                      </>
+                    ) : (
+                      <button
+                        type="button"
+                        className="account-action-button delete-account-button"
+                        aria-label={`Delete account ${address}`}
+                        onClick={() => toggleDeleteConfirmation(address)}
+                      >
+                        <svg viewBox="0 0 24 24" aria-hidden="true">
+                          <path d="M9 3h6l1 2h4v2H4V5h4l1-2zm1 7h2v7h-2v-7zm4 0h2v7h-2v-7zM7 10h2v7H7v-7zm1 10h8a2 2 0 0 0 2-2V8H6v10a2 2 0 0 0 2 2z" fill="currentColor" />
+                        </svg>
+                      </button>
                     )}
                   </div>
-                </label>
+                </div>
               ))}
             </div>
           ) : (

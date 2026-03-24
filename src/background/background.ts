@@ -136,6 +136,11 @@ async function handleMessage(message: any, _sender: chrome.runtime.MessageSender
       return { success: true };
     }
 
+    case 'REMOVE_ACCOUNT': {
+      const active = await keyManager.removeAccount(message.address);
+      return { success: true, active };
+    }
+
     case 'SIGN_TRANSACTION': {
       const keypair = keyManager.getActiveKeypair();
       if (!keypair) {

@@ -242,11 +242,19 @@ h3 {
   display: flex;
   align-items: center;
   padding: 12px;
+  gap: 8px;
   background-color: var(--surface-subtle);
   border-radius: 8px;
-  cursor: pointer;
   transition: background-color 0.2s ease;
   border: 1px solid transparent;
+}
+
+.account-select {
+  display: flex;
+  align-items: center;
+  flex: 1;
+  min-width: 0;
+  cursor: pointer;
 }
 
 .account-item:hover {
@@ -307,6 +315,15 @@ h3 {
   min-width: 0;
 }
 
+.account-header-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  width: 100%;
+  justify-content: space-between;
+}
+
 .sub-address {
   font-size: 0.75rem;
   color: var(--text-muted);
@@ -316,6 +333,76 @@ h3 {
 .account-item.active .address-text {
   color: var(--primary);
   font-weight: 500;
+}
+
+.badge {
+  flex-shrink: 0;
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  padding: 3px 6px;
+  border-radius: 999px;
+}
+
+.badge-watch {
+  background-color: rgba(255, 158, 100, 0.16);
+  color: var(--warning);
+}
+
+.account-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s ease;
+}
+
+.account-actions.confirming,
+.account-item:hover .account-actions,
+.account-item:focus-within .account-actions {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.account-action-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-muted);
+  transition: opacity 0.2s ease, background-color 0.2s ease, color 0.2s ease;
+}
+
+.account-action-button svg {
+  width: 16px;
+  height: 16px;
+}
+
+.delete-account-button:hover,
+.delete-account-button:focus-visible {
+  background-color: rgba(247, 118, 142, 0.12);
+  color: var(--danger-bg);
+  outline: none;
+}
+
+.confirm-account-button:hover,
+.confirm-account-button:focus-visible {
+  background-color: rgba(158, 206, 106, 0.16);
+  color: #9ece6a;
+  outline: none;
+}
+
+.cancel-account-button:hover,
+.cancel-account-button:focus-visible {
+  background-color: rgba(154, 165, 206, 0.12);
+  color: var(--text-main);
+  outline: none;
 }
 
 .text-sm {
@@ -330,27 +417,4 @@ h3 {
   margin-top: 8px;
   font-weight: 400;
   letter-spacing: 0.03333em;
-}
-
-.account-header-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  width: 100%;
-}
-
-.badge {
-  font-size: 0.65rem;
-  padding: 2px 6px;
-  border-radius: 4px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  flex-shrink: 0;
-}
-
-.badge-watch {
-  background-color: rgba(187, 154, 247, 0.14);
-  color: var(--text-muted);
-  border: 1px solid var(--border);
 }
