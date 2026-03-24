@@ -10,6 +10,44 @@ test.describe('Sui Test Wallet Automation', () => {
   const watchAddressOne = '0xa111111111111111111111111111111111111111111111111111111111111111';
   const watchAddressTwo = '0xb222222222222222222222222222222222222222222222222222222222222222';
 
+  async function sendAutomation(page: Page, message: Record<string, unknown>) {
+    return page.evaluate(async (request) => {
+      return new Promise((resolve) => {
+        const handler = (event: MessageEvent) => {
+          if (
+            event.source !== window ||
+            event.data.type !== 'SUI_TEST_WALLET_AUTOMATION_RESPONSE' ||
+            event.data.id !== request.id
+          ) {
+            return;
+          }
+
+          window.removeEventListener('message', handler);
+          resolve(event.data.response ?? { error: event.data.error });
+        };
+
+        window.addEventListener('message', handler);
+        window.postMessage(request, '*');
+      });
+    }, message);
+  }
+
+  async function sendRuntimeMessage(page: Page, message: Record<string, unknown>) {
+    return page.evaluate(async (request) => {
+      return new Promise((resolve) => {
+        chrome.runtime.sendMessage(request, (response) => {
+          resolve(response ?? { error: chrome.runtime.lastError?.message });
+        });
+      });
+    }, message);
+  }
+
+  async function fireRuntimeMessage(page: Page, message: Record<string, unknown>) {
+    return page.evaluate((request) => {
+      chrome.runtime.sendMessage(request);
+    }, message);
+  }
+
   function shortAddress(address: string) {
     return `${address.slice(0, 8)}...${address.slice(-6)}`;
   }
@@ -36,6 +74,15 @@ test.describe('Sui Test Wallet Automation', () => {
     await page.goto(`chrome-extension://${extensionId}/popup.html`);
     await expect(page.locator('.popup-container')).toBeVisible();
     return page;
+  }
+
+  async function openApprovalPage(trigger: () => Promise<unknown> | void): Promise<Page> {
+    const pagePromise = browserContext.waitForEvent('page');
+    void trigger();
+    const approvalPage = await pagePromise;
+    await approvalPage.waitForLoadState('domcontentloaded');
+    await expect(approvalPage.getByRole('heading', { name: 'Approve Transaction' })).toBeVisible();
+    return approvalPage;
   }
 
   test.beforeEach(async ({}, testInfo) => {
@@ -206,5 +253,80 @@ test.describe('Sui Test Wallet Automation', () => {
     await row.hover();
     await expect(row.getByRole('button', { name: `Copy address ${watchAddressOne}` })).toBeVisible();
     await expect(row.getByRole('button', { name: `Fund account ${watchAddressOne}` })).toBeVisible();
+  });
+
+  test('should require manual approval before a signing request resolves', async () => {
+    const popupPage = await openPopupPage();
+
+    await sendRuntimeMessage(popupPage, {
+      type: 'SET_AUTO_APPROVE',
+      enabled: false,
+    });
+
+    const approvalPage = await openApprovalPage(() => fireRuntimeMessage(popupPage, {
+      type: 'OPEN_TEST_APPROVAL',
+      requestType: 'SIGN_TRANSACTION',
+      txJson: JSON.stringify({ kind: 'manual-approval-test', sender: 'test' }),
+    }));
+    await expect(approvalPage.getByText('Manual approval')).toBeVisible();
+    await expect(approvalPage.getByText('manual-approval-test')).toBeVisible();
+
+    const approvalId = new URL(approvalPage.url()).searchParams.get('approval');
+    expect(approvalId).not.toBeNull();
+
+    await popupPage.waitForTimeout(1500);
+    const pendingBeforeApprove = await sendRuntimeMessage(approvalPage, {
+      type: 'GET_PENDING_APPROVAL',
+      id: approvalId,
+    }) as { request: { id: string } | null };
+    expect(pendingBeforeApprove.request?.id).toBe(approvalId);
+
+    const closePromise = approvalPage.waitForEvent('close');
+    await sendRuntimeMessage(popupPage, {
+      type: 'APPROVE_PENDING_APPROVAL',
+      id: approvalId,
+    });
+    await closePromise;
+
+    const verificationPage = await openPopupPage();
+    const pendingAfterApprove = await sendRuntimeMessage(verificationPage, {
+      type: 'GET_PENDING_APPROVAL',
+      id: approvalId,
+    }) as { request: unknown | null };
+    expect(pendingAfterApprove.request).toBeNull();
+  });
+
+  test('should auto-approve after 5 seconds when enabled', async () => {
+    const popupPage = await openPopupPage();
+
+    await sendRuntimeMessage(popupPage, {
+      type: 'SET_AUTO_APPROVE',
+      enabled: true,
+    });
+
+    const startedAt = Date.now();
+    const approvalPage = await openApprovalPage(() => fireRuntimeMessage(popupPage, {
+        type: 'OPEN_TEST_APPROVAL',
+        requestType: 'SIGN_AND_EXECUTE_TRANSACTION',
+        txJson: JSON.stringify({ kind: 'auto-approval-test', sender: 'test' }),
+      }));
+    await expect(approvalPage.getByText('Auto-approve enabled')).toBeVisible();
+    await expect(approvalPage.getByText('Approving in', { exact: false })).toBeVisible();
+
+    const approvalId = new URL(approvalPage.url()).searchParams.get('approval');
+    expect(approvalId).not.toBeNull();
+
+    await approvalPage.waitForEvent('close');
+
+    const elapsedMs = Date.now() - startedAt;
+    expect(elapsedMs).toBeGreaterThanOrEqual(4500);
+    expect(elapsedMs).toBeLessThan(12000);
+
+    const verificationPage = await openPopupPage();
+    const pendingAfterAutoApprove = await sendRuntimeMessage(verificationPage, {
+      type: 'GET_PENDING_APPROVAL',
+      id: approvalId,
+    }) as { request: unknown | null };
+    expect(pendingAfterAutoApprove.request).toBeNull();
   });
 });

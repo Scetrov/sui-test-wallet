@@ -178,6 +178,36 @@ h3 {
   cursor: default;
 }
 
+.btn-secondary {
+  width: 100%;
+  background-color: transparent;
+  color: var(--text-main);
+  border: 1px solid var(--border);
+  padding: 8px 22px;
+  border-radius: 4px;
+  font-weight: 500;
+  font-size: 0.875rem;
+  line-height: 1.75;
+  letter-spacing: 0.02857em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: background-color 250ms cubic-bezier(0.4, 0, 0.2, 1) 0ms, border-color 250ms cubic-bezier(0.4, 0, 0.2, 1) 0ms;
+}
+
+.btn-secondary:hover:not(:disabled),
+.btn-secondary:focus-visible:not(:disabled) {
+  background-color: rgba(154, 165, 206, 0.12);
+  border-color: rgba(154, 165, 206, 0.4);
+  outline: none;
+}
+
+.btn-secondary:disabled {
+  background-color: transparent;
+  color: rgba(255, 255, 255, 0.26);
+  border-color: rgba(255, 255, 255, 0.12);
+  cursor: default;
+}
+
 .checkbox-label {
   display: flex;
   align-items: flex-start;
@@ -479,4 +509,103 @@ h3 {
 
 .account-error {
   margin-top: 12px;
+}
+
+.approval-page {
+  min-height: 100vh;
+}
+
+.approval-banner {
+  margin-bottom: 12px;
+}
+
+.approval-section {
+  margin-top: 0;
+}
+
+.approval-header {
+  cursor: default;
+}
+
+.approval-content {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.approval-meta-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.approval-meta-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.approval-address-row {
+  flex-direction: column;
+}
+
+.approval-label,
+.approval-tx-label,
+.countdown-label {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+}
+
+.approval-value,
+.countdown-value {
+  color: var(--text-main);
+  font-size: 0.9rem;
+}
+
+.monospace-value {
+  font-family: monospace;
+  word-break: break-all;
+}
+
+.approval-countdown-card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 12px;
+  background-color: var(--surface-subtle);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.approval-tx-block {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.approval-tx-preview {
+  margin: 0;
+  padding: 12px;
+  background-color: rgba(10, 12, 22, 0.45);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text-main);
+  font-size: 0.78rem;
+  line-height: 1.55;
+  overflow: auto;
+  max-height: 280px;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.approval-button-row {
+  display: flex;
+  gap: 12px;
+}
+
+.approval-error {
+  margin-top: 0;
 }

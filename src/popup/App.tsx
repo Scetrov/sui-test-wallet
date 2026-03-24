@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import ApprovalView from './ApprovalView';
 
 const MIST_PER_SUI = 1_000_000_000;
 
@@ -17,6 +18,16 @@ function formatSuiBalance(balance: string | undefined) {
 }
 
 export default function App() {
+  const approvalId = new URLSearchParams(window.location.search).get('approval');
+
+  if (approvalId) {
+    return <ApprovalView approvalId={approvalId} />;
+  }
+
+  return <WalletApp />;
+}
+
+function WalletApp() {
   const [network, setNetwork] = useState('localnet');
   const [activeAddress, setActiveAddress] = useState<string | null>(null);
   const [accounts, setAccounts] = useState<string[]>([]);
@@ -27,6 +38,7 @@ export default function App() {
   const [fundingAddress, setFundingAddress] = useState<string | null>(null);
   const [copiedAddress, setCopiedAddress] = useState<string | null>(null);
   const [faucetAvailable, setFaucetAvailable] = useState(false);
+  const [autoApproveEnabled, setAutoApproveEnabled] = useState(false);
   const [bech32Key, setBech32Key] = useState('');
   const [watchAddress, setWatchAddress] = useState('');
   const [mainnetAccepted, setMainnetAccepted] = useState(false);
@@ -35,6 +47,7 @@ export default function App() {
   const [importExpanded, setImportExpanded] = useState(false);
   const [watchExpanded, setWatchExpanded] = useState(false);
   const [networkExpanded, setNetworkExpanded] = useState(false);
+  const [approvalExpanded, setApprovalExpanded] = useState(false);
 
   const fetchAccounts = () => {
     chrome.runtime.sendMessage({ type: 'GET_ACCOUNTS' }, (res) => {
@@ -66,6 +79,11 @@ export default function App() {
     // Check local storage for mainnet explicit accept
     chrome.storage.local.get(['suiTestWalletMainnetAccepted'], (res) => {
       if (res.suiTestWalletMainnetAccepted) setMainnetAccepted(true);
+    });
+    chrome.runtime.sendMessage({ type: 'GET_APPROVAL_SETTINGS' }, (res) => {
+      if (res && typeof res.autoApproveEnabled === 'boolean') {
+        setAutoApproveEnabled(res.autoApproveEnabled);
+      }
     });
   }, []);
 
@@ -180,6 +198,12 @@ export default function App() {
       setNetwork('localnet');
       chrome.runtime.sendMessage({ type: 'SET_NETWORK', network: 'localnet' });
     }
+  };
+
+  const handleAutoApproveChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const enabled = e.target.checked;
+    setAutoApproveEnabled(enabled);
+    chrome.runtime.sendMessage({ type: 'SET_AUTO_APPROVE', enabled });
   };
 
   return (
@@ -378,6 +402,26 @@ export default function App() {
                 onChange={handleRiskAccept}
               />
               I accept the risks of using mainnet with this insecure wallet
+            </label>
+          </div>
+        )}
+      </div>
+
+      <div className="section">
+        <div className="section-header" onClick={() => setApprovalExpanded(!approvalExpanded)}>
+          <h3>Transaction Approval</h3>
+          <span className={`chevron ${approvalExpanded ? 'expanded' : ''}`}>▼</span>
+        </div>
+
+        {approvalExpanded && (
+          <div className="section-content">
+            <label className="checkbox-label">
+              <input
+                type="checkbox"
+                checked={autoApproveEnabled}
+                onChange={handleAutoApproveChange}
+              />
+              Show the approval dialog and auto-approve after 5 seconds
             </label>
           </div>
         )}

@@ -32,6 +32,16 @@ export function setupAutomation() {
         if (chrome.runtime.lastError) return respond(null, chrome.runtime.lastError.message);
         respond(res);
       });
+    } else if (action === 'SET_AUTO_APPROVE') {
+      chrome.runtime.sendMessage({ type: 'SET_AUTO_APPROVE', enabled: payload.enabled }, (res) => {
+        if (chrome.runtime.lastError) return respond(null, chrome.runtime.lastError.message);
+        respond(res);
+      });
+    } else if (action === 'OPEN_TEST_APPROVAL') {
+      chrome.runtime.sendMessage({ type: 'OPEN_TEST_APPROVAL', requestType: payload.requestType, txJson: payload.txJson }, (res) => {
+        if (chrome.runtime.lastError) return respond(null, chrome.runtime.lastError.message);
+        respond(res);
+      });
     } else if (action === 'GET_STATE') {
       Promise.all([
         new Promise(r => chrome.runtime.sendMessage({ type: 'GET_NETWORK' }, r)),
