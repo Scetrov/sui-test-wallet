@@ -191,4 +191,20 @@ test.describe('Sui Test Wallet Automation', () => {
     await expect(firstRow).toBeVisible();
     await expect(firstRow.locator('input[type="radio"]')).toBeChecked();
   });
+
+  test('should show balances and funding controls for each account', async () => {
+    const popupPage = await openPopupPage();
+
+    await popupPage.getByRole('heading', { name: 'Watch Wallet' }).click();
+    await popupPage.getByPlaceholder('0x...').fill(watchAddressOne);
+    await popupPage.getByRole('button', { name: 'Add Watch Address' }).click();
+
+    const row = popupPage.locator('.account-item').filter({ hasText: shortAddress(watchAddressOne) });
+    await expect(row).toBeVisible();
+    await expect(row.getByText('0 SUI')).toBeVisible();
+
+    await row.hover();
+    await expect(row.getByRole('button', { name: `Copy address ${watchAddressOne}` })).toBeVisible();
+    await expect(row.getByRole('button', { name: `Fund account ${watchAddressOne}` })).toBeVisible();
+  });
 });

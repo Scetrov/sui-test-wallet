@@ -20,7 +20,7 @@
 body {
   margin: 0;
   padding: 0;
-  width: 340px;
+  width: 420px;
   background-color: var(--bg-color);
   color: var(--text-main);
   font-family: "Roboto", "Helvetica", "Arial", sans-serif;
@@ -85,10 +85,6 @@ h3 {
   padding: 12px 16px;
   cursor: pointer;
   transition: background-color 0.2s ease;
-}
-
-.section-header:hover {
-  background-color: var(--surface-hover);
 }
 
 .section-header h3 {
@@ -240,7 +236,7 @@ h3 {
 
 .account-item {
   display: flex;
-  align-items: center;
+  align-items: stretch;
   padding: 12px;
   gap: 8px;
   background-color: var(--surface-subtle);
@@ -313,6 +309,7 @@ h3 {
   flex-direction: column;
   flex-grow: 1;
   min-width: 0;
+  gap: 4px;
 }
 
 .account-header-row {
@@ -328,6 +325,18 @@ h3 {
   font-size: 0.75rem;
   color: var(--text-muted);
   font-family: monospace;
+}
+
+.account-balance-row {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+}
+
+.balance-value {
+  font-size: 0.82rem;
+  font-weight: 500;
+  color: var(--text-main);
 }
 
 .account-item.active .address-text {
@@ -350,8 +359,11 @@ h3 {
 }
 
 .account-actions {
-  display: inline-flex;
+  display: flex;
+  flex-direction: row;
   align-items: center;
+  justify-content: center;
+  align-self: center;
   gap: 4px;
   opacity: 0;
   pointer-events: none;
@@ -371,6 +383,7 @@ h3 {
   justify-content: center;
   width: 28px;
   height: 28px;
+  flex: 0 0 auto;
   padding: 0;
   border: none;
   border-radius: 6px;
@@ -382,6 +395,51 @@ h3 {
 .account-action-button svg {
   width: 16px;
   height: 16px;
+}
+
+.fund-account-button {
+  background-color: rgba(122, 162, 247, 0.12);
+  color: var(--primary);
+}
+
+.copy-account-button {
+  background-color: rgba(154, 165, 206, 0.10);
+  color: var(--text-muted);
+}
+
+.copy-account-button:hover,
+.copy-account-button:focus-visible {
+  background-color: rgba(154, 165, 206, 0.18);
+  color: var(--text-main);
+  outline: none;
+}
+
+.copy-account-button.copied {
+  background-color: rgba(158, 206, 106, 0.16);
+  color: #9ece6a;
+}
+
+.fund-account-button svg {
+  width: 16px;
+  height: 16px;
+}
+
+.fund-loading-indicator {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+}
+
+.fund-account-button:hover:not(:disabled),
+.fund-account-button:focus-visible:not(:disabled) {
+  background-color: rgba(122, 162, 247, 0.22);
+  color: var(--primary-hover);
+  outline: none;
+}
+
+.fund-account-button:disabled {
+  background-color: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.28);
 }
 
 .delete-account-button:hover,
@@ -417,4 +475,8 @@ h3 {
   margin-top: 8px;
   font-weight: 400;
   letter-spacing: 0.03333em;
+}
+
+.account-error {
+  margin-top: 12px;
 }

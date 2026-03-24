@@ -1,12 +1,32 @@
 import React, { useEffect, useState } from 'react';
 
+const MIST_PER_SUI = 1_000_000_000;
+
+function formatSuiBalance(balance: string | undefined) {
+  if (!balance) return '0 SUI';
+
+  try {
+    const mist = BigInt(balance);
+    const whole = mist / BigInt(MIST_PER_SUI);
+    const fraction = (mist % BigInt(MIST_PER_SUI)).toString().padStart(9, '0').slice(0, 4).replace(/0+$/, '');
+    const wholeFormatted = new Intl.NumberFormat('en-US').format(Number(whole));
+    return `${fraction ? `${wholeFormatted}.${fraction}` : wholeFormatted} SUI`;
+  } catch {
+    return '0 SUI';
+  }
+}
+
 export default function App() {
   const [network, setNetwork] = useState('localnet');
   const [activeAddress, setActiveAddress] = useState<string | null>(null);
   const [accounts, setAccounts] = useState<string[]>([]);
   const [resolvedNames, setResolvedNames] = useState<Record<string, { suins?: string, eve?: string }>>({});
   const [accountMetadata, setAccountMetadata] = useState<Record<string, { type: 'private-key' | 'watch-only' }>>({});
+  const [balances, setBalances] = useState<Record<string, string>>({});
   const [pendingDeleteAddress, setPendingDeleteAddress] = useState<string | null>(null);
+  const [fundingAddress, setFundingAddress] = useState<string | null>(null);
+  const [copiedAddress, setCopiedAddress] = useState<string | null>(null);
+  const [faucetAvailable, setFaucetAvailable] = useState(false);
   const [bech32Key, setBech32Key] = useState('');
   const [watchAddress, setWatchAddress] = useState('');
   const [mainnetAccepted, setMainnetAccepted] = useState(false);
@@ -23,8 +43,14 @@ export default function App() {
         if (res.accounts) setAccounts(res.accounts);
         if (res.resolvedNames) setResolvedNames(res.resolvedNames);
         if (res.metadata) setAccountMetadata(res.metadata);
+        if (res.balances) setBalances(res.balances);
+        if (res.network) setNetwork(res.network);
+        setFaucetAvailable(!!res.faucetAvailable);
         if (pendingDeleteAddress && !res.accounts?.includes(pendingDeleteAddress)) {
           setPendingDeleteAddress(null);
+        }
+        if (fundingAddress && !res.accounts?.includes(fundingAddress)) {
+          setFundingAddress(null);
         }
       }
     });
@@ -90,11 +116,58 @@ export default function App() {
     setPendingDeleteAddress((current) => current === address ? null : address);
   };
 
+  const handleFundAccount = (address: string) => {
+    setError(null);
+    setFundingAddress(address);
+
+    chrome.runtime.sendMessage({ type: 'REQUEST_FAUCET', address }, (res) => {
+      setFundingAddress(null);
+
+      if (res?.error) {
+        setError(res.error);
+        return;
+      }
+
+      window.setTimeout(() => {
+        fetchAccounts();
+      }, 1500);
+    });
+  };
+
+  const handleCopyAddress = async (address: string) => {
+    setError(null);
+
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(address);
+      } else {
+        const input = document.createElement('textarea');
+        input.value = address;
+        input.setAttribute('readonly', '');
+        input.style.position = 'absolute';
+        input.style.left = '-9999px';
+        document.body.appendChild(input);
+        input.select();
+        document.execCommand('copy');
+        document.body.removeChild(input);
+      }
+
+      setCopiedAddress(address);
+      window.setTimeout(() => {
+        setCopiedAddress((current) => current === address ? null : current);
+      }, 1200);
+    } catch {
+      setError('Failed to copy address to clipboard.');
+    }
+  };
+
   const handleNetworkChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const val = e.target.value;
     if (val === 'mainnet' && !mainnetAccepted) return; // Guarded by UI but double check
     setNetwork(val);
-    chrome.runtime.sendMessage({ type: 'SET_NETWORK', network: val });
+    chrome.runtime.sendMessage({ type: 'SET_NETWORK', network: val }, () => {
+      fetchAccounts();
+    });
   };
 
   const handleRiskAccept = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -148,9 +221,43 @@ export default function App() {
                       {(resolvedNames[address]?.eve || resolvedNames[address]?.suins) && (
                         <span className="sub-address">{address.slice(0, 8)}...{address.slice(-6)}</span>
                       )}
+                      <div className="account-balance-row">
+                        <span className="balance-value">{formatSuiBalance(balances[address])}</span>
+                      </div>
                     </div>
                   </label>
                   <div className={`account-actions ${pendingDeleteAddress === address ? 'confirming' : ''}`}>
+                    <button
+                      type="button"
+                      className={`account-action-button copy-account-button ${copiedAddress === address ? 'copied' : ''}`}
+                      aria-label={`Copy address ${address}`}
+                      onClick={() => handleCopyAddress(address)}
+                    >
+                      {copiedAddress === address ? (
+                        <svg viewBox="0 0 24 24" aria-hidden="true">
+                          <path d="M9 16.17 4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" fill="currentColor" />
+                        </svg>
+                      ) : (
+                        <svg viewBox="0 0 24 24" aria-hidden="true">
+                          <path d="M16 1H4a2 2 0 0 0-2 2v12h2V3h12V1zm3 4H8a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2zm0 16H8V7h11v14z" fill="currentColor" />
+                        </svg>
+                      )}
+                    </button>
+                    <button
+                      type="button"
+                      className="account-action-button fund-account-button"
+                      aria-label={`Fund account ${address}`}
+                      disabled={!faucetAvailable || fundingAddress === address}
+                      onClick={() => handleFundAccount(address)}
+                    >
+                      {fundingAddress === address ? (
+                        <span className="fund-loading-indicator" aria-hidden="true">...</span>
+                      ) : (
+                        <svg viewBox="0 0 24 24" aria-hidden="true">
+                          <path d="M11 3h2v7h7v2h-7v7h-2v-7H4v-2h7V3z" fill="currentColor" />
+                        </svg>
+                      )}
+                    </button>
                     {pendingDeleteAddress === address ? (
                       <>
                         <button
@@ -193,6 +300,7 @@ export default function App() {
           ) : (
             <div className="text-sm">No accounts imported</div>
           )}
+          {error && <div className="error-text account-error">{error}</div>}
         </div>
       </div>
 
@@ -218,7 +326,6 @@ export default function App() {
             >
               Import Key
             </button>
-            {error && !watchAddress && <div className="error-text">{error}</div>}
           </div>
         )}
       </div>
@@ -245,7 +352,6 @@ export default function App() {
             >
               Add Watch Address
             </button>
-            {error && watchAddress && <div className="error-text">{error}</div>}
           </div>
         )}
       </div>

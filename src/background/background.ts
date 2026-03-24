@@ -1,5 +1,6 @@
 import { KeyManager } from './KeyManager';
 import { SuiJsonRpcClient, getJsonRpcFullnodeUrl } from '@mysten/sui/jsonRpc';
+import { getFaucetHost, requestSuiFromFaucetV2 } from '@mysten/sui/faucet';
 import { Transaction } from '@mysten/sui/transactions';
 
 const keyManager = new KeyManager();
@@ -13,6 +14,10 @@ async function getNetwork(): Promise<string> {
 async function isMainnetAccepted(): Promise<boolean> {
   const data = await chrome.storage.local.get(['suiTestWalletMainnetAccepted']);
   return !!data.suiTestWalletMainnetAccepted;
+}
+
+function canUseFaucet(network: string): network is 'localnet' | 'devnet' | 'testnet' {
+  return network === 'localnet' || network === 'devnet' || network === 'testnet';
 }
 
 async function resolveNames(client: SuiJsonRpcClient, address: string): Promise<{ suins?: string, eve?: string }> {
@@ -104,16 +109,26 @@ async function handleMessage(message: any, _sender: chrome.runtime.MessageSender
       // Resolve names for all accounts in parallel
       const resolvedNames: Record<string, { suins?: string, eve?: string }> = {};
       const metadata: Record<string, { type: 'private-key' | 'watch-only' }> = {};
+      const balances: Record<string, string> = {};
       
       const storedKeys = ((await chrome.storage.local.get(['suiTestWalletKeys'])).suiTestWalletKeys as any[]) || [];
 
       await Promise.all(accounts.map(async (addr) => {
-        resolvedNames[addr] = await resolveNames(client, addr);
+        const [names, balance] = await Promise.all([
+          resolveNames(client, addr),
+          client.getBalance({ owner: addr }).catch((error) => {
+            console.warn('Failed to load balance', addr, error);
+            return { totalBalance: '0' };
+          }),
+        ]);
+
+        resolvedNames[addr] = names;
+        balances[addr] = balance.totalBalance;
         const key = storedKeys.find((k: any) => k.publicKey === addr);
         metadata[addr] = { type: key?.bech32Key ? 'private-key' : 'watch-only' };
       }));
 
-      return { accounts, active, resolvedNames, metadata };
+      return { accounts, active, resolvedNames, metadata, balances, network, faucetAvailable: canUseFaucet(network) };
     }
 
     case 'SET_NETWORK': {
@@ -139,6 +154,21 @@ async function handleMessage(message: any, _sender: chrome.runtime.MessageSender
     case 'REMOVE_ACCOUNT': {
       const active = await keyManager.removeAccount(message.address);
       return { success: true, active };
+    }
+
+    case 'REQUEST_FAUCET': {
+      const network = await getNetwork();
+
+      if (!canUseFaucet(network)) {
+        throw new Error(`Faucet is not available for ${network}.`);
+      }
+
+      await requestSuiFromFaucetV2({
+        host: getFaucetHost(network),
+        recipient: message.address,
+      });
+
+      return { success: true, network };
     }
 
     case 'SIGN_TRANSACTION': {
