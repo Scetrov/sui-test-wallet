@@ -580,6 +580,22 @@ h3 {
   border-radius: 8px;
 }
 
+.approval-summary-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px;
+  background-color: rgba(122, 162, 247, 0.08);
+  border: 1px solid rgba(122, 162, 247, 0.18);
+  border-radius: 8px;
+}
+
+.approval-summary-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
 .approval-tx-block {
   display: flex;
   flex-direction: column;

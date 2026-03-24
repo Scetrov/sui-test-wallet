@@ -14,6 +14,54 @@ function formatRequestType(requestType: ApprovalRequest['requestType']) {
   return requestType === 'SIGN_AND_EXECUTE_TRANSACTION' ? 'Sign and Execute Transaction' : 'Sign Transaction';
 }
 
+function summarizeTransaction(txJson: string) {
+  try {
+    const parsed = JSON.parse(txJson) as Record<string, unknown>;
+    const summary: Array<{ label: string; value: string }> = [];
+
+    const kind = typeof parsed.kind === 'string'
+      ? parsed.kind
+      : typeof parsed.transactionKind === 'string'
+        ? parsed.transactionKind
+        : typeof parsed.version === 'number'
+          ? `Transaction v${parsed.version}`
+          : null;
+
+    if (kind) {
+      summary.push({ label: 'Type', value: kind });
+    }
+
+    if (typeof parsed.sender === 'string') {
+      summary.push({ label: 'Sender', value: parsed.sender });
+    }
+
+    const commands = Array.isArray(parsed.commands)
+      ? parsed.commands
+      : Array.isArray((parsed as { transactions?: unknown[] }).transactions)
+        ? (parsed as { transactions: unknown[] }).transactions
+        : null;
+
+    if (commands) {
+      summary.push({ label: 'Commands', value: `${commands.length}` });
+    }
+
+    const gasBudget =
+      typeof (parsed as { gasData?: { budget?: string | number } }).gasData?.budget !== 'undefined'
+        ? String((parsed as { gasData?: { budget?: string | number } }).gasData?.budget)
+        : typeof (parsed as { gasConfig?: { budget?: string | number } }).gasConfig?.budget !== 'undefined'
+          ? String((parsed as { gasConfig?: { budget?: string | number } }).gasConfig?.budget)
+          : null;
+
+    if (gasBudget) {
+      summary.push({ label: 'Gas Budget', value: gasBudget });
+    }
+
+    return summary;
+  } catch {
+    return [];
+  }
+}
+
 export default function ApprovalView({ approvalId }: { approvalId: string }) {
   const [request, setRequest] = useState<ApprovalRequest | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -64,6 +112,14 @@ export default function ApprovalView({ approvalId }: { approvalId: string }) {
     } catch {
       return request.txJson;
     }
+  }, [request]);
+
+  const transactionSummary = useMemo(() => {
+    if (!request) {
+      return [];
+    }
+
+    return summarizeTransaction(request.txJson);
   }, [request]);
 
   const handleDecision = (type: 'APPROVE_PENDING_APPROVAL' | 'REJECT_PENDING_APPROVAL') => {
@@ -131,6 +187,20 @@ export default function ApprovalView({ approvalId }: { approvalId: string }) {
                   </>
                 )}
               </div>
+
+              {transactionSummary.length > 0 && (
+                <div className="approval-summary-card">
+                  <div className="approval-tx-label">Transaction summary</div>
+                  <div className="approval-summary-list">
+                    {transactionSummary.map((item) => (
+                      <div key={item.label} className="approval-meta-row">
+                        <span className="approval-label">{item.label}</span>
+                        <span className="approval-value monospace-value">{item.value}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               <div className="approval-tx-block">
                 <div className="approval-tx-label">Transaction payload</div>

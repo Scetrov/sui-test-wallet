@@ -1,4 +1,5 @@
 import { test, expect, chromium, type BrowserContext, type Page } from '@playwright/test';
+import { Ed25519Keypair } from '@mysten/sui/keypairs/ed25519';
 import path from 'path';
 
 test.describe('Sui Test Wallet Automation', () => {
@@ -9,6 +10,7 @@ test.describe('Sui Test Wallet Automation', () => {
   const extensionPath = path.join(__dirname, '../dist');
   const watchAddressOne = '0xa111111111111111111111111111111111111111111111111111111111111111';
   const watchAddressTwo = '0xb222222222222222222222222222222222222222222222222222222222222222';
+  const generatedKey = new Ed25519Keypair().getSecretKey();
 
   async function sendAutomation(page: Page, message: Record<string, unknown>) {
     return page.evaluate(async (request) => {
@@ -46,6 +48,52 @@ test.describe('Sui Test Wallet Automation', () => {
     return page.evaluate((request) => {
       chrome.runtime.sendMessage(request);
     }, message);
+  }
+
+  async function startWalletSignRequest(page: Page, requestId: string, txJson: string) {
+    await page.evaluate(async ({ currentRequestId, currentTxJson }) => {
+      const discovered: any[] = [];
+
+      window.dispatchEvent(new CustomEvent('wallet-standard:app-ready', {
+        detail: {
+          register(wallet: unknown) {
+            discovered.push(wallet);
+          },
+        },
+      }));
+
+      await new Promise((resolve) => setTimeout(resolve, 0));
+
+      const wallet = discovered.find((candidate: any) => candidate?.name === 'Sui Test Wallet');
+      if (!wallet) {
+        throw new Error('Sui Test Wallet was not discovered.');
+      }
+
+      const connectResult = await wallet.features['standard:connect'].connect();
+      const account = connectResult.accounts[0];
+
+      (window as any).__walletSignStates ??= {};
+      (window as any).__walletSignStates[currentRequestId] = 'pending';
+
+      wallet.features['sui:signTransaction'].signTransaction({
+        account,
+        transaction: {
+          async toJSON() {
+            return currentTxJson;
+          },
+        },
+      }).then(() => {
+        (window as any).__walletSignStates[currentRequestId] = 'resolved';
+      }).catch((error: Error) => {
+        (window as any).__walletSignStates[currentRequestId] = `rejected:${error.message}`;
+      });
+    }, { currentRequestId: requestId, currentTxJson: txJson });
+  }
+
+  async function readWalletSignState(page: Page, requestId: string) {
+    return page.evaluate((currentRequestId) => {
+      return (window as any).__walletSignStates?.[currentRequestId] ?? null;
+    }, requestId);
   }
 
   function shortAddress(address: string) {
@@ -257,19 +305,34 @@ test.describe('Sui Test Wallet Automation', () => {
 
   test('should require manual approval before a signing request resolves', async () => {
     const popupPage = await openPopupPage();
+    const page = await browserContext.newPage();
+    await page.goto('https://example.com');
+    await page.waitForTimeout(1000);
+
+    const importResult = await sendAutomation(page, {
+      type: 'SUI_TEST_WALLET_AUTOMATION',
+      action: 'IMPORT_KEY',
+      id: 'approval-import-key',
+      bech32Key: generatedKey,
+      alias: 'Approval Key',
+    }) as { address?: string; error?: string };
+    expect(importResult.error).toBeUndefined();
+    expect(importResult.address).toBeTruthy();
 
     await sendRuntimeMessage(popupPage, {
       type: 'SET_AUTO_APPROVE',
       enabled: false,
     });
 
-    const approvalPage = await openApprovalPage(() => fireRuntimeMessage(popupPage, {
-      type: 'OPEN_TEST_APPROVAL',
-      requestType: 'SIGN_TRANSACTION',
-      txJson: JSON.stringify({ kind: 'manual-approval-test', sender: 'test' }),
-    }));
+    const requestId = 'manual-wallet-sign';
+    const invalidTxJson = JSON.stringify({ kind: 'manual-approval-test', sender: 'test' });
+    const approvalPage = await openApprovalPage(() => startWalletSignRequest(page, requestId, invalidTxJson));
     await expect(approvalPage.getByText('Manual approval')).toBeVisible();
-    await expect(approvalPage.getByText('manual-approval-test')).toBeVisible();
+    await expect(approvalPage.getByText('Transaction summary')).toBeVisible();
+    await expect(approvalPage.getByText('Type')).toBeVisible();
+    await expect(approvalPage.locator('.approval-summary-card').getByText('manual-approval-test', { exact: true })).toBeVisible();
+    await expect(approvalPage.getByText('Sender')).toBeVisible();
+    await expect(approvalPage.locator('.approval-summary-card').getByText('test', { exact: true })).toBeVisible();
 
     const approvalId = new URL(approvalPage.url()).searchParams.get('approval');
     expect(approvalId).not.toBeNull();
@@ -280,6 +343,7 @@ test.describe('Sui Test Wallet Automation', () => {
       id: approvalId,
     }) as { request: { id: string } | null };
     expect(pendingBeforeApprove.request?.id).toBe(approvalId);
+    expect(await readWalletSignState(page, requestId)).toBe('pending');
 
     const closePromise = approvalPage.waitForEvent('close');
     await sendRuntimeMessage(popupPage, {
@@ -287,6 +351,10 @@ test.describe('Sui Test Wallet Automation', () => {
       id: approvalId,
     });
     await closePromise;
+
+    await expect.poll(async () => {
+      return readWalletSignState(page, requestId);
+    }).toContain('rejected:');
 
     const verificationPage = await openPopupPage();
     const pendingAfterApprove = await sendRuntimeMessage(verificationPage, {
