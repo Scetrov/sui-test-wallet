@@ -24,7 +24,13 @@ jobs:
 
       - name: Resolve tagged commit
         id: target
-        run: echo "sha=$(git rev-list -n 1 \"${GITHUB_REF_NAME}\")" >> "$GITHUB_OUTPUT"
+        run: |
+          sha="$(git rev-list -n 1 "${GITHUB_REF_NAME}")"
+          if [ -z "$sha" ]; then
+            echo "Failed to resolve commit for tag ${GITHUB_REF_NAME}"
+            exit 1
+          fi
+          echo "sha=${sha}" >> "$GITHUB_OUTPUT"
 
       - name: Check version metadata
         run: npm run version:check
@@ -93,11 +99,11 @@ jobs:
       - name: Download packaged artifact
         env:
           GH_TOKEN: ${{ github.token }}
-          TARGET_SHA: ${{ steps.target.outputs.sha }}
         run: |
           mkdir -p release-artifact
+          artifact_name="release-bundle-${{ steps.target.outputs.sha }}"
           gh run download "${{ steps.ci_run.outputs.id }}" \
-            -n "release-bundle-${TARGET_SHA}" \
+            -n "$artifact_name" \
             -D release-artifact
 
       - name: Locate release asset
