@@ -1,15 +1,19 @@
 :root {
-  --bg-color: #121212; /* Material Dark Background */
-  --text-main: rgba(255, 255, 255, 0.87);
-  --text-muted: rgba(255, 255, 255, 0.6);
-  --bg-panel: #1e1e1e; /* Material Dark Surface at 1dp elevation */
-  --primary: #FF7400; /* Accent Color */
-  --primary-hover: #e66800;
-  --danger-bg: #f44336;
-  --danger-text: #ffffff;
-  --border: rgba(255, 255, 255, 0.12);
-  --elevation-1: 0px 2px 1px -1px rgba(0,0,0,0.2), 0px 1px 1px 0px rgba(0,0,0,0.14), 0px 1px 3px 0px rgba(0,0,0,0.12);
-  --elevation-2: 0px 3px 1px -2px rgba(0,0,0,0.2), 0px 2px 2px 0px rgba(0,0,0,0.14), 0px 1px 5px 0px rgba(0,0,0,0.12);
+  --bg-color: #1a1b26;
+  --text-main: #c0caf5;
+  --text-muted: #9aa5ce;
+  --bg-panel: #24283b;
+  --primary: #7aa2f7;
+  --primary-hover: #89b4fa;
+  --danger-bg: #f7768e;
+  --danger-text: #1a1b26;
+  --warning: #ff9e64;
+  --surface-subtle: rgba(65, 72, 104, 0.55);
+  --surface-hover: rgba(122, 162, 247, 0.10);
+  --surface-active: rgba(122, 162, 247, 0.16);
+  --border: rgba(154, 165, 206, 0.24);
+  --elevation-1: 0px 10px 30px rgba(10, 12, 22, 0.28);
+  --elevation-2: 0px 16px 40px rgba(10, 12, 22, 0.36);
   color-scheme: dark;
 }
 
@@ -46,7 +50,7 @@ body {
 .warning-icon {
   font-size: 2.2rem;
   line-height: 1;
-  color: var(--primary);
+  color: var(--warning);
 }
 
 .warning-text {
@@ -84,7 +88,7 @@ h3 {
 }
 
 .section-header:hover {
-  background-color: rgba(255, 255, 255, 0.04);
+  background-color: var(--surface-hover);
 }
 
 .section-header h3 {
@@ -107,7 +111,7 @@ h3 {
 }
 
 .address-box {
-  background-color: rgba(255, 255, 255, 0.04);
+  background-color: var(--surface-subtle);
   padding: 10px 12px;
   border-radius: 4px;
   font-family: monospace;
@@ -148,7 +152,7 @@ h3 {
 .btn-primary {
   width: 100%;
   background-color: var(--primary);
-  color: white;
+  color: #1a1b26;
   border: none;
   padding: 8px 22px;
   border-radius: 4px;
@@ -213,7 +217,7 @@ h3 {
   height: 10px;
   transform: scale(0);
   transition: 120ms transform ease-in-out;
-  box-shadow: inset 1em 1em #121212;
+  box-shadow: inset 1em 1em var(--bg-color);
   background-color: transparent;
   transform-origin: center;
   clip-path: polygon(14% 44%, 0 65%, 50% 100%, 100% 16%, 80% 0%, 43% 62%);
@@ -238,7 +242,7 @@ h3 {
   display: flex;
   align-items: center;
   padding: 12px;
-  background-color: rgba(255, 255, 255, 0.04);
+  background-color: var(--surface-subtle);
   border-radius: 8px;
   cursor: pointer;
   transition: background-color 0.2s ease;
@@ -246,12 +250,12 @@ h3 {
 }
 
 .account-item:hover {
-  background-color: rgba(255, 255, 255, 0.08);
+  background-color: var(--surface-hover);
 }
 
 .account-item.active {
-  background-color: rgba(255, 116, 0, 0.08);
-  border-color: rgba(255, 116, 0, 0.3);
+  background-color: var(--surface-active);
+  border-color: rgba(122, 162, 247, 0.35);
 }
 
 .account-item input[type="radio"] {
@@ -346,7 +350,7 @@ h3 {
 }
 
 .badge-watch {
-  background-color: rgba(255, 255, 255, 0.1);
+  background-color: rgba(187, 154, 247, 0.14);
   color: var(--text-muted);
   border: 1px solid var(--border);
 }
