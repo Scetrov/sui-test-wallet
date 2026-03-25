@@ -221,6 +221,11 @@ async function handleMessage(message: any, _sender: chrome.runtime.MessageSender
       return { success: true, address: added.publicKey };
     }
 
+    case 'GENERATE_ACCOUNT': {
+      const added = await keyManager.generateKey(message.alias);
+      return { success: true, address: added.publicKey };
+    }
+
     case 'GET_ACCOUNTS': {
       const accounts = await keyManager.getAccounts();
       const active = await keyManager.getAddress();
@@ -235,7 +240,7 @@ async function handleMessage(message: any, _sender: chrome.runtime.MessageSender
       
       const storedKeys = ((await chrome.storage.local.get(['suiTestWalletKeys'])).suiTestWalletKeys as any[]) || [];
 
-      await Promise.all(accounts.map(async (addr) => {
+      await Promise.all(accounts.map(async (addr: string) => {
         const [names, balance] = await Promise.all([
           resolveNames(client, addr),
           client.getBalance({ owner: addr }).catch((error) => {
@@ -261,6 +266,11 @@ async function handleMessage(message: any, _sender: chrome.runtime.MessageSender
     case 'GET_NETWORK': {
       const network = await getNetwork();
       return { network };
+    }
+
+    case 'GET_PRIVATE_KEY': {
+      const bech32Key = await keyManager.getBech32Key(message.address);
+      return { bech32Key };
     }
 
     case 'GET_APPROVAL_SETTINGS': {

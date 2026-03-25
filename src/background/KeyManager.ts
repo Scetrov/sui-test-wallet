@@ -163,10 +163,24 @@ export class KeyManager {
     return this.activeAddress;
   }
 
+  public async generateKey(alias: string = 'Generated Account'): Promise<StoredKey> {
+    const keypair = Ed25519Keypair.generate();
+    const bech32Key = keypair.getSecretKey();
+    return this.importKey(bech32Key, alias);
+  }
+
   public async getAccounts(): Promise<string[]> {
     if (this.storedKeys.length === 0) {
       await this.loadFromStorage();
     }
     return this.storedKeys.map(k => k.publicKey);
+  }
+
+  public async getBech32Key(address: string): Promise<string | null> {
+    if (this.storedKeys.length === 0) {
+      await this.loadFromStorage();
+    }
+    const key = this.storedKeys.find(k => k.publicKey === address);
+    return key?.bech32Key || null;
   }
 }

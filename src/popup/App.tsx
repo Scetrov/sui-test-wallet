@@ -37,6 +37,7 @@ function WalletApp() {
   const [pendingDeleteAddress, setPendingDeleteAddress] = useState<string | null>(null);
   const [fundingAddress, setFundingAddress] = useState<string | null>(null);
   const [copiedAddress, setCopiedAddress] = useState<string | null>(null);
+  const [copiedPrivateKey, setCopiedPrivateKey] = useState<string | null>(null);
   const [faucetAvailable, setFaucetAvailable] = useState(false);
   const [autoApproveEnabled, setAutoApproveEnabled] = useState(false);
   const [bech32Key, setBech32Key] = useState('');
@@ -45,6 +46,7 @@ function WalletApp() {
   const [error, setError] = useState<string | null>(null);
   
   const [importExpanded, setImportExpanded] = useState(false);
+  const [generateExpanded, setGenerateExpanded] = useState(false);
   const [watchExpanded, setWatchExpanded] = useState(false);
   const [networkExpanded, setNetworkExpanded] = useState(false);
   const [approvalExpanded, setApprovalExpanded] = useState(false);
@@ -104,6 +106,21 @@ function WalletApp() {
         fetchAccounts();
       } else {
         setError('Failed to import: ' + chrome.runtime.lastError?.message);
+      }
+    });
+  };
+
+  const handleGenerate = () => {
+    setError(null);
+    chrome.runtime.sendMessage({ type: 'GENERATE_ACCOUNT', alias: 'Generated Account' }, (res) => {
+      if (res?.error) {
+        setError(res.error);
+      } else if (res?.address) {
+        setActiveAddress(res.address);
+        setGenerateExpanded(false);
+        fetchAccounts();
+      } else {
+        setError('Failed to generate: ' + chrome.runtime.lastError?.message);
       }
     });
   };
@@ -177,6 +194,39 @@ function WalletApp() {
     } catch {
       setError('Failed to copy address to clipboard.');
     }
+  };
+
+  const handleCopyPrivateKey = async (address: string) => {
+    setError(null);
+
+    chrome.runtime.sendMessage({ type: 'GET_PRIVATE_KEY', address }, async (res) => {
+      if (res?.bech32Key) {
+        try {
+          if (navigator.clipboard?.writeText) {
+            await navigator.clipboard.writeText(res.bech32Key);
+          } else {
+            const input = document.createElement('textarea');
+            input.value = res.bech32Key;
+            input.setAttribute('readonly', '');
+            input.style.position = 'absolute';
+            input.style.left = '-9999px';
+            document.body.appendChild(input);
+            input.select();
+            document.execCommand('copy');
+            document.body.removeChild(input);
+          }
+
+          setCopiedPrivateKey(address);
+          window.setTimeout(() => {
+            setCopiedPrivateKey((current) => current === address ? null : current);
+          }, 1200);
+        } catch {
+          setError('Failed to copy private key to clipboard.');
+        }
+      } else {
+        setError('Failed to retrieve private key.');
+      }
+    });
   };
 
   const handleNetworkChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
@@ -269,6 +319,24 @@ function WalletApp() {
                     </button>
                     <button
                       type="button"
+                      className={`account-action-button copy-account-button ${copiedPrivateKey === address ? 'copied' : ''}`}
+                      aria-label={`Copy private key for ${address}`}
+                      disabled={accountMetadata[address]?.type === 'watch-only'}
+                      title={accountMetadata[address]?.type === 'watch-only' ? 'Private key not available for watch-only addresses' : 'Copy private key'}
+                      onClick={() => handleCopyPrivateKey(address)}
+                    >
+                      {copiedPrivateKey === address ? (
+                        <svg viewBox="0 0 24 24" aria-hidden="true">
+                          <path d="M9 16.17 4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" fill="currentColor" />
+                        </svg>
+                      ) : (
+                        <svg viewBox="0 0 24 24" aria-hidden="true">
+                          <path d="M12.65 10C11.83 7.67 9.61 6 7 6c-3.31 0-6 2.69-6 6s2.69 6 6 6c2.61 0 4.83-1.67 5.65-4H17v4h4v-4h2v-4H12.65zM7 14c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2z" fill="currentColor" />
+                        </svg>
+                      )}
+                    </button>
+                    <button
+                      type="button"
                       className="account-action-button fund-account-button"
                       aria-label={`Fund account ${address}`}
                       disabled={!faucetAvailable || fundingAddress === address}
@@ -326,6 +394,27 @@ function WalletApp() {
           )}
           {error && <div className="error-text account-error">{error}</div>}
         </div>
+      </div>
+
+      <div className="section">
+        <div className="section-header" onClick={() => setGenerateExpanded(!generateExpanded)}>
+          <h3>Generate New Account</h3>
+          <span className={`chevron ${generateExpanded ? 'expanded' : ''}`}>▼</span>
+        </div>
+        
+        {generateExpanded && (
+          <div className="section-content">
+            <div className="text-sm" style={{ marginBottom: '12px' }}>
+              This will generate a brand new Sui account and automatically import it.
+            </div>
+            <button 
+              onClick={handleGenerate} 
+              className="btn-primary"
+            >
+              Generate Account
+            </button>
+          </div>
+        )}
       </div>
 
       <div className="section">

@@ -397,4 +397,20 @@ test.describe('Sui Test Wallet Automation', () => {
     }) as { request: unknown | null };
     expect(pendingAfterAutoApprove.request).toBeNull();
   });
+
+  test('should generate a new account via the popup UI', async () => {
+    const popupPage = await openPopupPage();
+
+    await popupPage.getByRole('heading', { name: 'Generate New Account' }).click();
+    await popupPage.getByRole('button', { name: 'Generate Account' }).click();
+
+    const accountItems = popupPage.locator('.account-item');
+    await expect(accountItems).toHaveCount(1);
+    const addressText = await accountItems.first().locator('.address-text').textContent();
+    expect(addressText).toBeTruthy();
+    expect(addressText!.length).toBeGreaterThan(10);
+    
+    // Verify it's selected
+    await expect(accountItems.first().locator('input[type="radio"]')).toBeChecked();
+  });
 });
