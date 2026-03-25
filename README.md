@@ -1,11 +1,14 @@
 # Sui Test Wallet 💧🤖
 
+![Sui Test Wallet](assets/wallet-screenshot.png)
+
 [![CI](https://github.com/scetrov/sui-test-wallet/actions/workflows/ci.yml/badge.svg)](https://github.com/scetrov/sui-test-wallet/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 A specialized Chrome Extension Sui Wallet explicitly designed for **Playwright E2E automation testing**. This extension bridges the gap between running end-to-end dApp tests and interacting securely with the Sui blockchain.
 
-⚠️ **WARNING:** This wallet is designed for AUTOMATION and TESTING purposes only. It stores private keys in plain text within browser storage (`chrome.storage.local`). **Never import a private key that holds real assets.**
+> [!WARNING]
+> This wallet is designed for AUTOMATION and TESTING purposes only. It stores private keys in plain text within browser storage (`chrome.storage.local`). **Never import a private key that holds real assets.**
 
 ---
 
@@ -90,7 +93,8 @@ test("dApp connects to test wallet", async () => {
 });
 ```
 
-_A complete Playwright specification example can be found at `tests/wallet-automation.spec.ts`._
+> [!NOTE]
+> A complete Playwright specification example can be found at `tests/wallet-automation.spec.ts`._
 
 ---
 
@@ -169,7 +173,8 @@ Due to changes in the Sui v2 compiler migrations and CRXJS Vite behavior:
 - Be aware that the Vite configuration executes as ESM natively (`vite.config.mts`).
 - The wallet relies primarily on new `SuiJsonRpcClient` components under `@mysten/sui/jsonRpc`.
 
-_Make sure to run `npx tsc --noEmit` before opening pull requests to ensure strict type compliance!_
+> [!IMPORTANT]
+> Make sure to run `npx tsc --noEmit` before opening pull requests to ensure strict type compliance!
 
 ---
 
